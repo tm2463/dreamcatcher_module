@@ -64,14 +64,7 @@ BAM=false
 PAIRED=false
 SKIPREMAP=false
 
-#########################################################################################
-########### These are the databases and files used by Dreamcatcher ######################
-########### For now they are hardcoded here, but maybe should migrate to json ###########
-#########################################################################################
-
-SEQ2TAXID="$KUDB/seqid2taxid.map.refseq"
-GENBANK="$KUDB/assembly_summary_bacteria.txt"
-GSA="$KUDB/gcf_species_genus.tsv"
+export $(jq -r 'to_entries|map("\(.key)=\(.value)")|.[]' config.json)
 
 #########################################################################################
 ######################## Don't change things below this line ############################

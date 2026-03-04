@@ -1,0 +1,8 @@
+{
+  "NCBI": "/nfs/cellgeni/refdata_dreamcatcher/NCBI_datasets/bacteria_ref/ncbi_dataset/data/",
+  "KUDB": "/nfs/cellgeni/refdata_dreamcatcher/KrakenUniq_select",
+  "HST2T": "/nfs/cellgeni/refdata_dreamcatcher/decoy_reference/T2T_mito_phix",
+  "SEQ2TAXID": "seqid2taxid.map.refseq",
+  "GENBANK": "assembly_summary_bacteria.txt",
+  "GSA": "gcf_species_genus.tsv"
+}
