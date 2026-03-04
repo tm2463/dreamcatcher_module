@@ -7,17 +7,20 @@ ENV RETICULATE_MINICONDA_ENABLED=FALSE
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Install Seurat's system dependencies
-RUN apt-get update
-RUN apt-get install -y \
+RUN apt-get update && \
+    apt-get install -y \
     libhdf5-dev libcurl4-openssl-dev libssl-dev libpng-dev libboost-all-dev libxml2-dev \
     openjdk-8-jdk python3-dev python3-pip wget git libfftw3-dev libgsl-dev pkg-config \
     pigz zlib1g-dev libncurses5-dev libncursesw5-dev libbz2-dev liblzma-dev \
-    libssl-dev libdeflate-dev libfontconfig1-dev pbzip2 pigz llvm-10 libgeos-dev 
+    libssl-dev libdeflate-dev libfontconfig1-dev pbzip2 pigz llvm-10 libgeos-dev \
+    hisat2
 
 # Install UMAP
-RUN LLVM_CONFIG=/usr/lib/llvm-10/bin/llvm-config pip3 install llvmlite
-RUN pip3 install numpy
-RUN pip3 install umap-learn
+RUN LLVM_CONFIG=/usr/lib/llvm-10/bin/llvm-config pip3 install llvmlite && \
+    pip3 install \
+    numpy==1.24.4 \
+    scikit-learn==1.3.2 \
+    umap-learn==0.5.5
 
 # Install FIt-SNE
 RUN git clone --branch v1.2.1 https://github.com/KlugerLab/FIt-SNE.git
@@ -62,13 +65,6 @@ ARG umitools_version=1.1.6
 ARG kuniq_version=1.0.4
 ARG subread_version=2.0.2
 ARG bbmap_version=39.15 
-
-#Install hisat2
-RUN wget --no-check-certificate https://github.com/DaehwanKimLab/hisat2/archive/refs/tags/v${hisat_version}.tar.gz && \
-    tar -xvf v${hisat_version}.tar.gz -C /opt && \
-    cd /opt/hisat2-${hisat_version} && \
-    make && \
-    cd / && rm v${hisat_version}.tar.gz
 
 #Install bowtie2
 RUN wget --no-check-certificate https://github.com/BenLangmead/bowtie2/archive/refs/tags/v${bowtie_version}.tar.gz && \
@@ -124,5 +120,13 @@ RUN echo "hisat2 version: ${hisat_version}" >> versions.txt && \
     echo "subread version: ${subread_version}" >> versions.txt && \
     echo "BBMap version: ${bbmap_version}" >> versions.txt
 
-COPY Dockerfile /docker/
-RUN chmod -R 755 /docker
+# Add Dreamcatcher to PATH
+COPY . /opt/dreamcatcher
+RUN chmod +x opt/dreamcatcher/dreamcatcher
+ENV PATH="/opt/dreamcatcher:${PATH}"
+
+# Set the working directory
+WORKDIR /opt/dreamcatcher
+
+# Default command
+CMD ["dreamcatcher"]
