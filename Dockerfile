@@ -35,18 +35,10 @@ RUN git clone --branch v1.2.1 https://github.com/KlugerLab/FIt-SNE.git && \
     rm -rf FIt-SNE
 
 # Install bioconductor dependencies & suggests
-RUN R --no-save -e " \
+RUN R --no-save -e "\
 install.packages('BiocManager'); \
-BiocManager::install(c(
-'multtest','S4Vectors','SummarizedExperiment','SingleCellExperiment',
-'MAST','DESeq2','BiocGenerics','GenomicRanges','IRanges','rtracklayer',
-'monocle','Biobase','limma','glmGamPoi'
-)); \
-install.packages(c(
-'VGAM','R.utils','metap','Rfast2','ape','enrichR','mixtools',
-'spatstat.explore','spatstat.geom','hdf5r','remotes','rgeos',
-'dplyr','igraph'
-)); \
+BiocManager::install(c('multtest','S4Vectors','SummarizedExperiment','SingleCellExperiment','MAST','DESeq2','BiocGenerics','GenomicRanges','IRanges','rtracklayer','monocle','Biobase','limma','glmGamPoi')); \
+install.packages(c('VGAM','R.utils','metap','Rfast2','ape','enrichR','mixtools','spatstat.explore','spatstat.geom','hdf5r','remotes','rgeos','dplyr','igraph')); \
 install.packages('https://cran.r-project.org/src/contrib/Archive/Matrix/Matrix_1.6-4.tar.gz', repos=NULL, type='source'); \
 install.packages('Seurat'); \
 remotes::install_github('mojaveazure/seurat-disk') \
