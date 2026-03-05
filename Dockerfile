@@ -8,7 +8,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 
 # Install Seurat's system dependencies
 RUN apt-get update && \
-    apt-get install -y \
+    apt-get install -y --no-install-recommends \
     libhdf5-dev libcurl4-openssl-dev libssl-dev libpng-dev libboost-all-dev libxml2-dev \
     openjdk-8-jdk python3-dev python3-pip wget git libfftw3-dev libgsl-dev pkg-config \
     pigz zlib1g-dev libncurses5-dev libncursesw5-dev libbz2-dev liblzma-dev \
@@ -17,44 +17,40 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Install UMAP
-RUN LLVM_CONFIG=/usr/lib/llvm-10/bin/llvm-config pip3 install llvmlite && \
-    pip3 install \
+RUN LLVM_CONFIG=/usr/lib/llvm-10/bin/llvm-config pip3 install 
+    llvmlite && \
     numpy==1.24.4 \
     scikit-learn==1.3.2 \
     umap-learn==0.5.5
 
 # Install FIt-SNE
-RUN git clone --branch v1.2.1 https://github.com/KlugerLab/FIt-SNE.git
-RUN g++ -std=c++11 -O3 FIt-SNE/src/sptree.cpp FIt-SNE/src/tsne.cpp FIt-SNE/src/nbodyfft.cpp  -o bin/fast_tsne -pthread -lfftw3 -lm
+RUN git clone --branch v1.2.1 https://github.com/KlugerLab/FIt-SNE.git && \
+    mkdir -p /usr/local/bin && \
+    g++ -std=c++11 -O3 \
+        FIt-SNE/src/sptree.cpp \
+        FIt-SNE/src/tsne.cpp \
+        FIt-SNE/src/nbodyfft.cpp \
+        -o /usr/local/bin/fast_tsne \
+        -pthread -lfftw3 -lm && \
+    rm -rf FIt-SNE
 
 # Install bioconductor dependencies & suggests
-RUN R --no-echo --no-restore --no-save -e "install.packages('BiocManager')"
-RUN R --no-echo --no-restore --no-save -e "BiocManager::install(c('multtest', 'S4Vectors', 'SummarizedExperiment', 'SingleCellExperiment', 'MAST', 'DESeq2', 'BiocGenerics', 'GenomicRanges', 'IRanges', 'rtracklayer', 'monocle', 'Biobase', 'limma', 'glmGamPoi'))"
-
-# Install CRAN suggests
-RUN R --no-echo --no-restore --no-save -e "install.packages(c('VGAM', 'R.utils', 'metap', 'Rfast2', 'ape', 'enrichR', 'mixtools'))"
-
-# Install spatstat
-RUN R --no-echo --no-restore --no-save -e "install.packages(c('spatstat.explore', 'spatstat.geom'))"
-
-# Install hdf5r
-RUN R --no-echo --no-restore --no-save -e "install.packages('hdf5r')"
-
-# Install latest Matrix
-RUN R --no-echo --no-restore --no-save -e "install.packages('remotes')"
-RUN R --no-echo --no-restore --no-save -e "install.packages('https://cran.r-project.org/src/contrib/Archive/Matrix/Matrix_1.6-4.tar.gz', repos=NULL, type='source')"
-
-# Install rgeos
-RUN R --no-echo --no-restore --no-save -e "install.packages('rgeos')"
-
-# Install Seurat
-RUN R --no-restore --no-save -e "install.packages('Seurat')"
-
-# Install SeuratDisk
-RUN R --no-echo --no-restore --no-save -e "remotes::install_github('mojaveazure/seurat-disk')"
-
-## Install dplyr, igraph 
-RUN R --no-echo --no-restore --no-save -e "install.packages(c('dplyr', 'igraph'))"
+RUN R --no-save -e " \
+install.packages('BiocManager'); \
+BiocManager::install(c(
+'multtest','S4Vectors','SummarizedExperiment','SingleCellExperiment',
+'MAST','DESeq2','BiocGenerics','GenomicRanges','IRanges','rtracklayer',
+'monocle','Biobase','limma','glmGamPoi'
+)); \
+install.packages(c(
+'VGAM','R.utils','metap','Rfast2','ape','enrichR','mixtools',
+'spatstat.explore','spatstat.geom','hdf5r','remotes','rgeos',
+'dplyr','igraph'
+)); \
+install.packages('https://cran.r-project.org/src/contrib/Archive/Matrix/Matrix_1.6-4.tar.gz', repos=NULL, type='source'); \
+install.packages('Seurat'); \
+remotes::install_github('mojaveazure/seurat-disk') \
+"
 
 CMD [ "R" ]
 ## now install all of the binary tools we need
@@ -125,6 +121,10 @@ RUN echo "hisat2 version: ${hisat_version}" >> versions.txt && \
 COPY . /opt/dreamcatcher
 RUN chmod +x opt/dreamcatcher/dreamcatcher
 ENV PATH="/opt/dreamcatcher:${PATH}"
+
+RUN apt-get purge -y git g++ llvm-10 && \
+    apt-get autoremove -y && \
+    apt-get clean
 
 # Set the working directory
 WORKDIR /opt/dreamcatcher
