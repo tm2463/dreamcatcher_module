@@ -17,7 +17,7 @@ RUN apt-get update && \
     rm -rf /var/lib/apt/lists/*
 
 # Install UMAP
-RUN LLVM_CONFIG=/usr/lib/llvm-10/bin/llvm-config pip3 install 
+RUN LLVM_CONFIG=/usr/lib/llvm-10/bin/llvm-config pip3 install \
     llvmlite && \
     numpy==1.24.4 \
     scikit-learn==1.3.2 \
