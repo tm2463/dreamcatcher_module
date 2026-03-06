@@ -6,6 +6,14 @@ RUN echo "options(repos = 'https://cloud.r-project.org')" > $(R --no-echo --no-s
 ENV RETICULATE_MINICONDA_ENABLED=FALSE
 ENV DEBIAN_FRONTEND=noninteractive
 
+ARG hisat_version=2.2.1
+ARG bowtie_version=2.5.1
+ARG samtools_version=1.21
+ARG umitools_version=1.1.6
+ARG kuniq_version=1.0.4
+ARG subread_version=2.0.2
+ARG bbmap_version=39.15 
+
 # Install Seurat's system dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
@@ -13,15 +21,20 @@ RUN apt-get update && \
     openjdk-8-jdk python3-dev python3-pip wget git libfftw3-dev libgsl-dev pkg-config \
     pigz zlib1g-dev libncurses5-dev libncursesw5-dev libbz2-dev liblzma-dev \
     libdeflate-dev libfontconfig1-dev pbzip2 pigz llvm-10 libgeos-dev \
-    hisat2 jq && \
+    hisat2=${hisat_version} bowtie2=${bowtie_version} samtools=${samtools_version}  && \
     rm -rf /var/lib/apt/lists/*
+
+RUN ln -s /usr/bin/python3 /usr/local/bin/python
 
 # Install UMAP
 RUN LLVM_CONFIG=/usr/lib/llvm-10/bin/llvm-config pip3 install \
     llvmlite \
     numpy==1.24.4 \
     scikit-learn==1.3.2 \
-    umap-learn==0.5.5
+    umap-learn==0.5.5 \
+    umi_tools==$umitools_version && \
+    apt clean && \
+    rm -rf /var/lib/apt/lists/*
 
 # Install FIt-SNE
 RUN git clone --branch v1.2.1 https://github.com/KlugerLab/FIt-SNE.git && \
@@ -45,38 +58,6 @@ remotes::install_github('mojaveazure/seurat-disk') \
 "
 
 CMD [ "R" ]
-## now install all of the binary tools we need
- 
-ARG hisat_version=2.2.1
-ARG bowtie_version=2.5.1
-ARG samtools_version=1.21
-ARG umitools_version=1.1.6
-ARG kuniq_version=1.0.4
-ARG subread_version=2.0.2
-ARG bbmap_version=39.15 
-
-#Install bowtie2
-RUN wget --no-check-certificate https://github.com/BenLangmead/bowtie2/archive/refs/tags/v${bowtie_version}.tar.gz && \
-    tar -xvf v${bowtie_version}.tar.gz -C /opt && \
-    cd /opt/bowtie2-${bowtie_version} && \
-    make && \
-    cd / && rm v${bowtie_version}.tar.gz
-
-#Install samtools
-RUN wget https://github.com/samtools/samtools/releases/download/${samtools_version}/samtools-${samtools_version}.tar.bz2 && \
-    tar -xvf samtools-${samtools_version}.tar.bz2 -C /opt && \
-    cd /opt/samtools-${samtools_version} && \
-    ./configure && \
-    make && \
-    make install && \
-    cd / && rm samtools-${samtools_version}.tar.bz2   
-
-#Install UMItools 
-RUN pip3 install umi_tools==$umitools_version && \
-    apt clean && \
-    rm -rf /var/lib/apt/lists/*
-
-RUN ln -s /usr/bin/python3 /usr/local/bin/python
 
 #Install KrakenUniq 
 RUN wget --no-check-certificate https://github.com/fbreitwieser/krakenuniq/archive/refs/tags/v${kuniq_version}.tar.gz && \
