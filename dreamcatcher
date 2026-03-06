@@ -137,7 +137,7 @@ SDIR="$RDIR/scripts"
 
 ## export script directory and singularity command, as well as available # of CPUS and RAM
 export SDIR=$SDIR
-export RAM=$RAM
+export RAM=$((RAM - 4))
 export CPUS=$CPUS 
 
 if [[ $BULK == true ]]
