@@ -66,18 +66,14 @@ SKIPREMAP=false
 
 #########################################################################################
 ########### These are the databases and files used by Dreamcatcher ######################
-########### For now they are hardcoded here, but maybe should migrate to json ###########
 #########################################################################################
 
-
-SIF="/nfs/cellgeni/singularity/images/dreamcatcher.sif"
-CMD="singularity run --bind /nfs,/lustre,/software $SIF"
-NCBI="/nfs/cellgeni/refdata_dreamcatcher/NCBI_datasets/bacteria_ref/ncbi_dataset/data/"
-KUDB="/nfs/cellgeni/refdata_dreamcatcher/KrakenUniq_select"
-HST2T="/nfs/cellgeni/refdata_dreamcatcher/decoy_reference/T2T_mito_phix"
-SEQ2TAXID="$KUDB/seqid2taxid.map.refseq"
-GENBANK="$KUDB/assembly_summary_bacteria.txt"
-GSA="$KUDB/gcf_species_genus.tsv"
+: "${NCBI:=/nfs/cellgeni/refdata_dreamcatcher/NCBI_datasets/bacteria_ref/ncbi_dataset/data/}"
+: "${KUDB:=/nfs/cellgeni/refdata_dreamcatcher/KrakenUniq_select}"
+: "${HST2T:=/nfs/cellgeni/refdata_dreamcatcher/decoy_reference/T2T_mito_phix}"
+: "${SEQ2TAXID:=$KUDB/seqid2taxid.map.refseq}"
+: "${GENBANK:=$KUDB/assembly_summary_bacteria.txt}"
+: "${GSA:=$KUDB/gcf_species_genus.tsv}"
 
 #########################################################################################
 ######################## Don't change things below this line ############################
@@ -149,16 +145,10 @@ fi
 RDIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 SDIR="$RDIR/scripts"
 
-if [[ `which singularity` == "" ]]
-then
-    >&2 echo "ERROR: can't find Singularity! make sure you have Singularity installed and added to \$PATH in your shell! Exiting.." 
-    exit 1
-fi 
 
 ## export script directory and singularity command, as well as available # of CPUS and RAM
 export SDIR=$SDIR
-export CMD=$CMD
-export RAM=$RAM
+export RAM=$((RAM - 4))
 export CPUS=$CPUS 
 
 if [[ $BULK == true ]]
@@ -178,8 +168,6 @@ echo "                    MAXIMIM RAM(G): $RAM"
 echo "                         BULK MODE: $BULK"
 echo "   SKIP REMAP (start from step 13): $SKIPREMAP"
 echo "                         BAM INPUT: $BAM"
-echo "                   SINGULARITY IMG: $SIF"
-echo "                   SINGULARITY CMD: $CMD"
 echo "                         REFSEQ DB: $NCBI"
 echo "                         KRAKEN DB: $KUDB"
 echo "            SEQUENCE-TO-TAXID file: $SEQ2TAXID"
@@ -213,13 +201,13 @@ then
 	echo "==> ["$(date +'%d-%b-%Y, %T')"] STEP 2: Running KrakenUniq .." 
 	if [[ $PAIRED == false ]] 
 	then
-	    $CMD krakenuniq --threads $CPUS --db $KUDB --preload-size ${RAM}G --output kuniq.output.txt \
+	    krakenuniq --threads $CPUS --db $KUDB --preload-size ${RAM}G --output kuniq.output.txt \
 	        --report-file kuniq.report.txt Unmapped_filt.R1.fastq.gz &> kuniq.log
-	    $CMD pigz -f kuniq.output.txt
+	    pigz -f kuniq.output.txt
 	else 
-	    $CMD krakenuniq --threads $CPUS --db $KUDB --preload-size ${RAM}G --output kuniq.output.txt \
+	    krakenuniq --threads $CPUS --db $KUDB --preload-size ${RAM}G --output kuniq.output.txt \
 	        --report-file kuniq.report.txt --paired Unmapped_filt.R1.fastq.gz Unmapped_filt.R2.fastq.gz &> kuniq.log
-	    $CMD pigz -f kuniq.output.txt
+	    pigz -f kuniq.output.txt
 	fi
 	
 	## KrakenUniq quits with no error and no output in some cases, still not sure why. Just re-run the job.  
@@ -252,34 +240,34 @@ then
 	
 	## steps 5-7: mapping to bacteria and human decoy. Notice the differential use of "-k/--max-seeds" and the relaxed soft-clipping penalty.
 	echo "==> ["$(date +'%d-%b-%Y, %T')"] STEP 5: Making combined Hisat2 index .." 
-	$CMD hisat2-build detected_strains.fna detected_strains &> detected.hisat2_build.log
+	hisat2-build detected_strains.fna detected_strains &> detected.hisat2_build.log
 	
 	if [[ $PAIRED == false ]] 
 	then 
 	    echo "==> ["$(date +'%d-%b-%Y, %T')"] STEP 6: Mapping original unmapped reads to the combined reference using Hisat2 .." 
-	    $CMD hisat2 -t -p$CPUS -k 5000 --sp 1,1 --no-spliced-alignment --no-unal -U Unmapped_filt.R1.fastq.gz -x \
-	        detected_strains 2> detected.hisat2_map.log | $CMD samtools sort -@$CPUS --verbosity 0 -O BAM - > detected_strains.bam 2> /dev/null
+	    hisat2 -t -p$CPUS -k 5000 --sp 1,1 --no-spliced-alignment --no-unal -U Unmapped_filt.R1.fastq.gz -x \
+	        detected_strains 2> detected.hisat2_map.log | samtools sort -@$CPUS --verbosity 0 -O BAM - > detected_strains.bam 2> /dev/null
 	  
 	    echo "==> ["$(date +'%d-%b-%Y, %T')"] STEP 7: Map same corrected reads to hisat2 index of T2T assembly."
-	    $CMD hisat2 -t -p$CPUS -k 1 --max-seeds 1000 --sp 1,1 --no-unal -U Unmapped_filt.R1.fastq.gz -x \
-	        $HST2T 2> hisat2_human.log | $CMD samtools sort -@$CPUS --verbosity 0 -O BAM - > human_remap.bam 2> /dev/null
+	    hisat2 -t -p$CPUS -k 1 --max-seeds 1000 --sp 1,1 --no-unal -U Unmapped_filt.R1.fastq.gz -x \
+	        $HST2T 2> hisat2_human.log | samtools sort -@$CPUS --verbosity 0 -O BAM - > human_remap.bam 2> /dev/null
 	  
 	    echo "==> ["$(date +'%d-%b-%Y, %T')"] STEP 8: Running featureCounts with accurate multimapper counting; annotate each read with gene, and number of bacterial and human mismatches .." 
-	    $CMD featureCounts -T $CPUS -M -O --fraction -t gene -g locus_tag -s 0 -a detected_strains.gff \
+	    featureCounts -T $CPUS -M -O --fraction -t gene -g locus_tag -s 0 -a detected_strains.gff \
 	        -o detected.fcounts.tsv -R BAM detected_strains.bam &> detected.fcounts.log  
 	    rm detected_strains.bam
 	    mv detected_strains.bam.featureCounts.bam detected_fcounts.bam 
 	else 
 	    echo "==> ["$(date +'%d-%b-%Y, %T')"] STEP 6: Mapping original unmapped reads to the combined reference using Hisat2 .." 
-	    $CMD hisat2 -t -p$CPUS -k 5000 --sp 1,1 --no-spliced-alignment --no-unal -1 Unmapped_filt.R1.fastq.gz -2 Unmapped_filt.R2.fastq.gz -x \
-	        detected_strains 2> detected.hisat2_map.log | $CMD samtools sort -@$CPUS --verbosity 0 -O BAM - > detected_strains.bam
+	    hisat2 -t -p$CPUS -k 5000 --sp 1,1 --no-spliced-alignment --no-unal -1 Unmapped_filt.R1.fastq.gz -2 Unmapped_filt.R2.fastq.gz -x \
+	        detected_strains 2> detected.hisat2_map.log | samtools sort -@$CPUS --verbosity 0 -O BAM - > detected_strains.bam
 	  
 	    echo "==> ["$(date +'%d-%b-%Y, %T')"] STEP 7: Map same corrected reads to hisat2 index of T2T assembly."
-	    $CMD hisat2 -t -p$CPUS -k 1 --max-seeds 1000 --sp 1,1 --no-unal -1 Unmapped_filt.R1.fastq.gz -2 Unmapped_filt.R2.fastq.gz -x \
-	    $HST2T 2> hisat2_human.log | $CMD samtools sort -@$CPUS --verbosity 0 -O BAM - > human_remap.bam
+	    hisat2 -t -p$CPUS -k 1 --max-seeds 1000 --sp 1,1 --no-unal -1 Unmapped_filt.R1.fastq.gz -2 Unmapped_filt.R2.fastq.gz -x \
+	    $HST2T 2> hisat2_human.log | samtools sort -@$CPUS --verbosity 0 -O BAM - > human_remap.bam
 	  
 	    echo "==> ["$(date +'%d-%b-%Y, %T')"] STEP 8: Running featureCounts with accurate multimapper counting; annotate each read with gene, and number of bacterial and human mismatches .." 
-	    $CMD featureCounts -T $CPUS -p --countReadPairs -M -O --fraction -t gene -g locus_tag -s 0 -a detected_strains.gff \
+	    featureCounts -T $CPUS -p --countReadPairs -M -O --fraction -t gene -g locus_tag -s 0 -a detected_strains.gff \
 	        -o detected.fcounts.tsv -R BAM detected_strains.bam &> detected.fcounts.log
 	    rm detected_strains.bam
 	    mv detected_strains.bam.featureCounts.bam detected_fcounts.bam 
@@ -335,31 +323,31 @@ wait
 
 ## step 14: cluster the read network into a more representative set of strains!
 echo "==> ["$(date +'%d-%b-%Y, %T')"] STEP 14: Parse the network and get the definitive list of strains .." 
-$CMD Rscript $SDIR/parse_read_network.R $GSA &> parse_read_network.log
+Rscript $SDIR/parse_read_network.R $GSA &> parse_read_network.log
 sort -u -t$'\t' -k15,15 --merge filtered.cluster.tsv > top.cluster.tsv
 
 echo "==> ["$(date +'%d-%b-%Y, %T')"] STEP 15: Making the new (top strain) bacterial reference and annotation, and building Hisat2 reference .."
 cut -f1 top.cluster.tsv | grep -v RefSeq > top_strains.list
 $SDIR/make_combined_reference.sh $NCBI top_strains.list top_strains &> top.mkref.log 
-$CMD hisat2-build top_strains.fna top_strains &> top.hisat2_build.log 
+hisat2-build top_strains.fna top_strains &> top.hisat2_build.log 
 
 if [[ $PAIRED == false ]] 
 then 
     echo "==> ["$(date +'%d-%b-%Y, %T')"] STEP 16: Mapping filtered unmapped single-end reads to the top strain reference using Hisat2 .." 
-    $CMD hisat2 -t -p$CPUS -k 100 --sp 1,1 --no-spliced-alignment --no-unal -U Unmapped_filt.R1.fastq.gz -x \
-        top_strains 2> top.hisat2_map.log | $CMD samtools sort -@$CPUS --verbosity 0 -O BAM - > top_strains.bam 2> /dev/null
+    hisat2 -t -p$CPUS -k 100 --sp 1,1 --no-spliced-alignment --no-unal -U Unmapped_filt.R1.fastq.gz -x \
+        top_strains 2> top.hisat2_map.log | samtools sort -@$CPUS --verbosity 0 -O BAM - > top_strains.bam 2> /dev/null
   
     echo "==> ["$(date +'%d-%b-%Y, %T')"] STEP 17: Running featureCounts (single-end) on top strains with accurate multimapper counting, output BAM" 
-    $CMD featureCounts -T $CPUS -M -O --fraction -t gene -g locus_tag -s 0 -a top_strains.gff \
+    featureCounts -T $CPUS -M -O --fraction -t gene -g locus_tag -s 0 -a top_strains.gff \
         -o top.fcounts.tsv -R BAM top_strains.bam &> top.fcounts.log  
     mv top_strains.bam.featureCounts.bam top_fcounts.bam 
 else 
     echo "==> ["$(date +'%d-%b-%Y, %T')"] STEP 16: Mapping filtered unmapped paired-end reads to the top strain reference using Hisat2 .." 
-    $CMD hisat2 -t -p$CPUS -k 100 --sp 1,1 --no-spliced-alignment --no-unal -1 Unmapped_filt.R1.fastq.gz -2 Unmapped_filt.R2.fastq.gz -x \
-        top_strains 2> top.hisat2_map.log | $CMD samtools sort -@$CPUS --verbosity 0 -O BAM - > top_strains.bam
+    hisat2 -t -p$CPUS -k 100 --sp 1,1 --no-spliced-alignment --no-unal -1 Unmapped_filt.R1.fastq.gz -2 Unmapped_filt.R2.fastq.gz -x \
+        top_strains 2> top.hisat2_map.log | samtools sort -@$CPUS --verbosity 0 -O BAM - > top_strains.bam
   
     echo "==> ["$(date +'%d-%b-%Y, %T')"] STEP 17: Running featureCounts (paired-end) on top strains with accurate multimapper counting, output BAM" 
-    $CMD featureCounts -T $CPUS -p --countReadPairs -M -O --fraction -t gene -g locus_tag -s 0 -a top_strains.gff \
+    featureCounts -T $CPUS -p --countReadPairs -M -O --fraction -t gene -g locus_tag -s 0 -a top_strains.gff \
         -o top.fcounts.tsv -R BAM top_strains.bam &> top.fcounts.log
     mv top_strains.bam.featureCounts.bam top_fcounts.bam 
 fi
@@ -381,34 +369,34 @@ $SDIR/filter_top_gff.pl top_strains.gff top_bad.genes.list $SEQ2TAXID > top_stra
 if [[ $PAIRED == false ]] 
 then
     echo "==> ["$(date +'%d-%b-%Y, %T')"] STEP 21: Redo the counting with a new GFF (single-end mode) .."
-    $CMD featureCounts -T $CPUS -M -O --fraction -t gene -g locus_tag -s 0 -a top_strains_filtered.gff \
+    featureCounts -T $CPUS -M -O --fraction -t gene -g locus_tag -s 0 -a top_strains_filtered.gff \
         -o top.fcounts.tsv -R BAM top_strains.bam &> top.gene_fcounts.log
-    $CMD samtools sort -@$CPUS top_strains.bam.featureCounts.bam > top_filtered_gene_sorted.bam 2> /dev/null
-    $CMD samtools index top_filtered_gene_sorted.bam
+    samtools sort -@$CPUS top_strains.bam.featureCounts.bam > top_filtered_gene_sorted.bam 2> /dev/null
+    samtools index top_filtered_gene_sorted.bam
     rm top_strains.bam.featureCounts.bam
 
     ## this counting is needed for UMI-tools; we will count reads with same UMI, barcode and strain once. This avoids overcouning due to rRNA operons
-    $CMD featureCounts -T $CPUS -M -O --fraction -t gene -g strain_id -s 0 -a top_strains_filtered.gff \
+    featureCounts -T $CPUS -M -O --fraction -t gene -g strain_id -s 0 -a top_strains_filtered.gff \
         -o top.strain_fcounts.tsv -R BAM top_strains.bam &> top.strain_fcounts.log
-    $CMD samtools sort -@$CPUS top_strains.bam.featureCounts.bam > top_filtered_strain_sorted.bam 2> /dev/null
-    $CMD samtools index top_filtered_strain_sorted.bam
+    samtools sort -@$CPUS top_strains.bam.featureCounts.bam > top_filtered_strain_sorted.bam 2> /dev/null
+    samtools index top_filtered_strain_sorted.bam
     rm top_strains.bam.featureCounts.bam top_strains.bam 
 
     echo "==> ["$(date +'%d-%b-%Y, %T')"] STEP 22: REMAKE annotated fcounts and summary table for top strains - now without human/mismatched/blacklisted genes.." 
     $SDIR/make_summary_tables.pl top.fcounts.tsv gene_biotypes.tsv top.read_to_gene_w_mismatches.tsv $SEQ2TAXID top
 else 
     echo "==> ["$(date +'%d-%b-%Y, %T')"] STEP 21: Redo the counting with a new GFF (paired-end mode) .."
-    $CMD featureCounts -T $CPUS -p --countReadPairs -M -O --fraction -t gene -g locus_tag -s 0 -a top_strains_filtered.gff \
+    featureCounts -T $CPUS -p --countReadPairs -M -O --fraction -t gene -g locus_tag -s 0 -a top_strains_filtered.gff \
         -o top.fcounts.tsv -R BAM top_strains.bam &> top.gene_fcounts.log
-    $CMD samtools sort -@$CPUS top_strains.bam.featureCounts.bam > top_filtered_gene_sorted.bam 2> /dev/null
-    $CMD samtools index top_filtered_gene_sorted.bam
+    samtools sort -@$CPUS top_strains.bam.featureCounts.bam > top_filtered_gene_sorted.bam 2> /dev/null
+    samtools index top_filtered_gene_sorted.bam
     rm top_strains.bam.featureCounts.bam
 
     ## this counting is needed for UMI-tools; we will count reads with same UMI, barcode and strain once. This avoids overcouning due to rRNA operons 
-    $CMD featureCounts -T $CPUS -p --countReadPairs -M -O --fraction -t gene -g strain_id -s 0 -a top_strains_filtered.gff \
+    featureCounts -T $CPUS -p --countReadPairs -M -O --fraction -t gene -g strain_id -s 0 -a top_strains_filtered.gff \
         -o top.strain_fcounts.tsv -R BAM top_strains.bam &> top.strain_fcounts.log
-    $CMD samtools sort -@$CPUS top_strains.bam.featureCounts.bam > top_filtered_strain_sorted.bam 2> /dev/null
-    $CMD samtools index top_filtered_strain_sorted.bam
+    samtools sort -@$CPUS top_strains.bam.featureCounts.bam > top_filtered_strain_sorted.bam 2> /dev/null
+    samtools index top_filtered_strain_sorted.bam
     rm top_strains.bam.featureCounts.bam top_strains.bam 
 
     echo "==> ["$(date +'%d-%b-%Y, %T')"] STEP 22: REMAKE annotated fcounts and summary table for top strains - now without human/mismatched/blacklisted genes.." 
@@ -433,8 +421,8 @@ then
 else 
     echo "==> ["$(date +'%d-%b-%Y, %T')"] STEP 23: Running final quantification using UMI-tools .."
     ## one BAM has actual bacterial genes, another has RefSeq strain ID for "gene" (XT)
-    $CMD umi_tools count --per-gene --gene-tag=XT --assigned-status-tag=XS --per-cell -I top_filtered_gene_sorted.bam   -S gene.umi_counts.tsv.gz   &>   gene.umi_tools_count.log 
-    $CMD umi_tools count --per-gene --gene-tag=XT --assigned-status-tag=XS --per-cell -I top_filtered_strain_sorted.bam -S strain.umi_counts.tsv.gz &> strain.umi_tools_count.log 
+    umi_tools count --per-gene --gene-tag=XT --assigned-status-tag=XS --per-cell -I top_filtered_gene_sorted.bam   -S gene.umi_counts.tsv.gz   &>   gene.umi_tools_count.log 
+    umi_tools count --per-gene --gene-tag=XT --assigned-status-tag=XS --per-cell -I top_filtered_strain_sorted.bam -S strain.umi_counts.tsv.gz &> strain.umi_tools_count.log 
 
     echo "==> ["$(date +'%d-%b-%Y, %T')"] STEP 24: Generate barcode-to-species table from per-gene UMI-tools .." 
     $SDIR/barcode_to_species.pl strain.umi_counts.tsv.gz $GSA > barcode_to_species.tsv
