@@ -12,8 +12,7 @@ RUN apt-get update && \
     libhdf5-dev libcurl4-openssl-dev libssl-dev libpng-dev libboost-all-dev libxml2-dev \
     openjdk-8-jdk python3-dev python3-pip wget git libfftw3-dev libgsl-dev pkg-config \
     pigz zlib1g-dev libncurses5-dev libncursesw5-dev libbz2-dev liblzma-dev \
-    libdeflate-dev libfontconfig1-dev pbzip2 pigz llvm-10 libgeos-dev \
-    hisat2 jq && \
+    libdeflate-dev libfontconfig1-dev pbzip2 pigz llvm-10 libgeos-dev libglpk-dev \
     rm -rf /var/lib/apt/lists/*
 
 # Install UMAP
@@ -66,6 +65,13 @@ ARG umitools_version=1.1.6
 ARG kuniq_version=1.0.4
 ARG subread_version=2.0.2
 ARG bbmap_version=39.15 
+
+#Install hisat2
+RUN wget --no-check-certificate https://github.com/DaehwanKimLab/hisat2/archive/refs/tags/v${hisat_version}.tar.gz && \
+    tar -xvf v${hisat_version}.tar.gz -C /opt && \
+    cd /opt/hisat2-${hisat_version} && \
+    make && \
+    cd / && rm v${hisat_version}.tar.gz
 
 #Install bowtie2
 RUN wget --no-check-certificate https://github.com/BenLangmead/bowtie2/archive/refs/tags/v${bowtie_version}.tar.gz && \
