@@ -12,7 +12,7 @@ RUN apt-get update && \
     libhdf5-dev libcurl4-openssl-dev libssl-dev libpng-dev libboost-all-dev libxml2-dev \
     openjdk-8-jdk python3-dev python3-pip wget git libfftw3-dev libgsl-dev pkg-config \
     pigz zlib1g-dev libncurses5-dev libncursesw5-dev libbz2-dev liblzma-dev \
-    libdeflate-dev libfontconfig1-dev pbzip2 pigz llvm-10 libgeos-dev libglpk-dev \
+    libdeflate-dev libfontconfig1-dev pbzip2 pigz llvm-10 libgeos-dev libglpk-dev && \
     rm -rf /var/lib/apt/lists/*
 
 # Install UMAP
